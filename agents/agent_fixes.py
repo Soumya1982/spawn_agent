@@ -14,11 +14,18 @@ Each AgentFix has:
 Adding a new fix:
     1.  Subclass AgentFix (or instantiate a LambdaFix for simple cases).
     2.  Register it in FIX_REGISTRY at the bottom of this file.
+
+Review-decision fix:
+    FixRejectedOrders handles the synthetic "order_rejected_by_reviewer"
+    event that BobRepairAgent injects after reading review_decisions.json.
+    It removes the rejected rows from the source CSV so the next workflow
+    run excludes them from the output entirely.
 """
 
 from __future__ import annotations
 
 import csv
+import json
 import logging
 import shutil
 from abc import ABC, abstractmethod
@@ -190,6 +197,80 @@ class FixFileNotFound(AgentFix):
         )
 
 
+class FixRejectedOrders(AgentFix):
+    """
+    SYNTHETIC event: order_rejected_by_reviewer
+    Root cause: A human reviewer marked one or more orders as "Rejected"
+                in the Streamlit review panel (HITL #5).  The decision is
+                stored in generated_output/review_decisions.json.
+
+    Fix:
+        1. Read review_decisions.json.
+        2. Collect every OrderID whose decision is "Rejected".
+        3. Remove those rows from order_history.csv so the next workflow
+           run will not include them in the output or the deploy artefact.
+        4. Update review_decisions.json — mark each acted-on order with
+           "Excluded" so the dashboard can show it was handled.
+
+    reversible = True because _write_csv() always creates a .csv.bak backup
+    before overwriting the source file.
+    """
+
+    name = "exclude_rejected_orders"
+
+    def matches(self, issue: dict[str, Any]) -> bool:
+        return issue.get("event") == "order_rejected_by_reviewer"
+
+    def apply(self, issue: dict[str, Any], project_root: Path) -> str:
+        review_path = project_root / "generated_output" / "review_decisions.json"
+        csv_path    = project_root / "order_history.csv"
+
+        # Load decisions
+        if not review_path.exists():
+            raise FileNotFoundError(
+                f"review_decisions.json not found at {review_path}"
+            )
+        decisions: dict[str, str] = json.loads(
+            review_path.read_text(encoding="utf-8")
+        )
+
+        rejected_ids = {
+            oid for oid, decision in decisions.items() if decision == "Rejected"
+        }
+        if not rejected_ids:
+            return "No rejected orders found in review_decisions.json — nothing to remove."
+
+        # Remove rejected rows from CSV
+        rows = _read_csv(csv_path)
+        original_count = len(rows)
+        kept_rows = [r for r in rows if r.get("OrderID", "").strip() not in rejected_ids]
+        removed_count = original_count - len(kept_rows)
+
+        if removed_count == 0:
+            return (
+                f"Rejected OrderIDs {rejected_ids} not found in CSV "
+                "(may have been removed in a prior run)."
+            )
+
+        fieldnames = list(rows[0].keys())
+        _write_csv(csv_path, kept_rows, fieldnames)
+
+        # Update decisions file: mark acted-on orders as "Excluded"
+        for oid in rejected_ids:
+            decisions[oid] = "Excluded"
+        review_path.write_text(
+            json.dumps(decisions, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        removed_list = ", ".join(sorted(rejected_ids))
+        return (
+            f"Removed {removed_count} rejected order(s) from CSV "
+            f"(OrderIDs: {removed_list}). "
+            "review_decisions.json updated to 'Excluded'."
+        )
+
+
 class FixDataTypeMismatch(AgentFix):
     """
     WARNING: datatype_mismatch
@@ -254,6 +335,7 @@ def _patch_csv_cell(csv_path: Path, data_row: int, column: str, new_value: str) 
 # --------------------------------------------------------------------------- #
 
 FIX_REGISTRY: list[AgentFix] = [
+    FixRejectedOrders(),        # highest priority — human decision overrides all
     FixFileNotFound(),
     FixMissingQuantity(),
     FixFormulaMismatch(),

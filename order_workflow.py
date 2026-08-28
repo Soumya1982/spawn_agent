@@ -49,6 +49,7 @@ import logging
 import shutil
 import subprocess
 import sys
+import time
 import traceback
 import uuid
 from dataclasses import dataclass, field
@@ -179,6 +180,19 @@ class WorkflowConfig:
     # If True, TotalAmount is overwritten with the recomputed value whenever
     # a mismatch is found (after logging it in the validation report)
     auto_correct_totals: bool = True
+
+    # ── Two-phase HITL pipeline ──────────────────────────────────────────────
+    # Phase 1 (--phase1): validate + transform, write staging JSON, launch
+    #   review_app.py so a human can approve/reject flagged rows.
+    # Phase 2 (--phase2): read review_decisions.json, apply decisions,
+    #   write the final processed JSON + deploy.
+    # Running without a phase flag executes the old single-pass behaviour
+    # (no human review pop-up) for backward compatibility.
+    phase: str = ""   # "" | "phase1" | "phase2"
+
+    # How long to wait (seconds) between polls when --phase1 blocks waiting
+    # for the human to finish reviewing (used only in the CLI main()).
+    review_poll_interval: int = 3
 
     # Expected data type per column, used by the data-type validation stage.
     # Allowed values: "string", "integer", "float", "date"
@@ -550,7 +564,11 @@ class OrderWorkflow:
     # ------------------------------------------------------------------ #
     # Stage 7: Export to JSON
     # ------------------------------------------------------------------ #
-    def export(self, aggregates: dict[str, Any]) -> Path:
+    def export(
+        self,
+        aggregates: dict[str, Any],
+        filename: str = "order_history_processed.json",
+    ) -> Path:
         stage = "export"
         self.audit.log(
             "INFO", stage, "stage_start", f"Exporting JSON to {self.config.output_dir}"
@@ -571,7 +589,7 @@ class OrderWorkflow:
                 "validation_report": self.issues,
             }
 
-            out_path = self.config.output_dir / "order_history_processed.json"
+            out_path = self.config.output_dir / filename
             with out_path.open("w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
         except Exception as exc:
@@ -646,13 +664,17 @@ class OrderWorkflow:
     # Orchestration
     # ------------------------------------------------------------------ #
     def run(self) -> Path:
+        """
+        Single-pass run (no human review).  Validates, transforms, exports,
+        and deploys in one shot.  Used when --phase1 / --phase2 are not set.
+        """
         self.load()
         self.check_data_types()
         self.check_duplicates()
         self.clean_formatting()
         self.check_formulas()
         aggregates = self.aggregate()
-        out_path = self.export(aggregates)
+        out_path   = self.export(aggregates)
         self.deploy(out_path)
 
         self.audit.log(
@@ -663,44 +685,267 @@ class OrderWorkflow:
         )
         return out_path
 
+    # ------------------------------------------------------------------ #
+    # Phase 1: validate + transform → write staging JSON
+    # ------------------------------------------------------------------ #
+    def run_phase1(self) -> Path:
+        """
+        Validate and transform the CSV, then write a staging JSON file.
+        Does NOT write the final processed JSON or deploy anything.
+        Returns the path to the staging file.
+        """
+        self.load()
+        self.check_data_types()
+        self.check_duplicates()
+        self.clean_formatting()
+        self.check_formulas()
+        aggregates = self.aggregate()
+
+        staging_path = self.export(
+            aggregates,
+            filename="order_history_staging.json",
+        )
+
+        self.audit.log(
+            "INFO", "workflow", "phase1_complete",
+            f"Phase 1 complete: {len(self.df)} rows processed, "
+            f"{len(self.issues)} issue(s) flagged. "
+            "Staging file written — awaiting human review.",
+            row_count=len(self.df),
+            issue_count=len(self.issues),
+            staging_path=str(staging_path),
+        )
+        return staging_path
+
+    # ------------------------------------------------------------------ #
+    # Phase 2: apply review decisions → write final JSON + deploy
+    # ------------------------------------------------------------------ #
+    def run_phase2(self) -> Path:
+        """
+        Read the staging JSON and review_decisions.json, filter out rejected
+        orders, rebuild aggregates from approved rows only, then export and
+        deploy the final processed JSON.
+        """
+        output_dir   = self.config.output_dir
+        staging_path = output_dir / "order_history_staging.json"
+        review_path  = output_dir / "review_decisions.json"
+
+        if not staging_path.exists():
+            raise FileNotFoundError(
+                f"Staging file not found: {staging_path}. "
+                "Run --phase1 first."
+            )
+        if not review_path.exists():
+            raise FileNotFoundError(
+                f"review_decisions.json not found: {review_path}. "
+                "Human review must be completed first."
+            )
+
+        # Load staging data
+        with staging_path.open(encoding="utf-8") as f:
+            staging = json.load(f)
+
+        decisions: dict[str, str] = json.loads(
+            review_path.read_text(encoding="utf-8")
+        )
+
+        rejected_ids = {
+            oid for oid, dec in decisions.items() if dec == "Rejected"
+        }
+        approved_ids = {
+            oid for oid, dec in decisions.items() if dec == "Approved"
+        }
+
+        self.audit.log(
+            "INFO", "phase2", "decisions_loaded",
+            f"Review decisions loaded: {len(approved_ids)} approved, "
+            f"{len(rejected_ids)} rejected.",
+            approved=list(approved_ids),
+            rejected=list(rejected_ids),
+        )
+
+        # Reconstruct the DataFrame from staging — apply decisions
+        all_orders = staging.get("orders", [])
+        kept_orders = [
+            o for o in all_orders
+            if str(o.get("OrderID", "")) not in rejected_ids
+        ]
+
+        self.df = pd.DataFrame(kept_orders)
+        # Re-cast numeric columns that json round-tripped as float/int
+        for col in ["Quantity"]:
+            if col in self.df.columns:
+                self.df[col] = pd.to_numeric(self.df[col], errors="coerce").fillna(1).astype(int)
+        for col in ["UnitPrice", "TotalAmount", "ExpectedTotalAmount"]:
+            if col in self.df.columns:
+                self.df[col] = pd.to_numeric(self.df[col], errors="coerce").fillna(0.0)
+
+        # Keep only validation issues for the rows that were NOT rejected
+        full_val_report = staging.get("validation_report", [])
+        self.issues = [
+            v for v in full_val_report
+            if str(v.get("order_id", "")) not in rejected_ids
+        ]
+
+        if rejected_ids:
+            self.audit.log(
+                "INFO", "phase2", "rejected_orders_excluded",
+                f"Excluded {len(rejected_ids)} rejected order(s) from output: "
+                f"{sorted(rejected_ids)}",
+                rejected=sorted(rejected_ids),
+            )
+
+        # Re-aggregate with the filtered rows
+        aggregates = self.aggregate()
+
+        # Export final JSON
+        out_path = self.export(aggregates)
+
+        # Clean up staging file — it's no longer needed
+        try:
+            staging_path.unlink()
+        except OSError:
+            pass
+
+        # Clean up the signal file
+        signal_path = output_dir / ".review_complete"
+        try:
+            signal_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        self.deploy(out_path)
+
+        self.audit.log(
+            "SUCCESS", "workflow", "workflow_complete",
+            f"Phase 2 complete: {len(self.df)} rows in final output, "
+            f"{len(rejected_ids)} rejected, "
+            f"{len(self.issues)} issue(s) in validation report.",
+            row_count=len(self.df),
+            rejected_count=len(rejected_ids),
+            issue_count=len(self.issues),
+        )
+        return out_path
+
 
 # --------------------------------------------------------------------------- #
 # CLI entry point
 # --------------------------------------------------------------------------- #
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="CSV -> JSON order history workflow")
-    parser.add_argument("--input", type=str, default="order_history.csv", help="Path to input CSV")
-    parser.add_argument(
-        "--output-dir", type=str, default="generated_output",
-        help="Project folder where the final processed JSON is written",
+    parser = argparse.ArgumentParser(
+        description="CSV -> JSON order history workflow",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Two-phase HITL usage:\n"
+            "  python order_workflow.py --phase1   # validate, open review pop-up\n"
+            "  # (review_app.py auto-launched; approve/reject flagged orders)\n"
+            "  python order_workflow.py --phase2   # apply decisions, export, deploy\n\n"
+            "Single-pass (no review pop-up):\n"
+            "  python order_workflow.py\n"
+        ),
     )
-    parser.add_argument(
-        "--log-dir", type=str, default="log_analysis",
-        help="Project folder where the JSON audit log is written",
-    )
-    parser.add_argument(
-        "--deploy-dir", type=str, default="deployed",
-        help="Simulated storage/deploy target (swap for Azure Blob, S3, etc.)",
-    )
+    parser.add_argument("--input", type=str, default="order_history.csv",
+                        help="Path to input CSV")
+    parser.add_argument("--output-dir", type=str, default="generated_output",
+                        help="Folder for processed JSON output")
+    parser.add_argument("--log-dir", type=str, default="log_analysis",
+                        help="Folder for JSON audit logs")
+    parser.add_argument("--deploy-dir", type=str, default="deployed",
+                        help="Deploy target folder")
+    parser.add_argument("--phase1", action="store_true",
+                        help="Run phase 1: validate + transform, launch review pop-up")
+    parser.add_argument("--phase2", action="store_true",
+                        help="Run phase 2: apply review decisions, export final JSON + deploy")
     return parser.parse_args()
+
+
+def _wait_for_review(signal_path: Path, poll_interval: int = 3) -> None:
+    """Block until review_app.py writes the .review_complete signal file."""
+    logger.info(
+        "Waiting for human review to complete in Streamlit… "
+        "(submit decisions in the browser to continue)"
+    )
+    while not signal_path.exists():
+        time.sleep(poll_interval)
+    logger.info("Review complete signal received.")
 
 
 def main() -> int:
     args = parse_args()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
 
+    # Determine which phase to run
+    if args.phase1 and args.phase2:
+        logger.error("Cannot pass both --phase1 and --phase2. Choose one.")
+        return 1
+
+    phase = "phase1" if args.phase1 else ("phase2" if args.phase2 else "")
+
+    # Always resolve paths to absolute so subprocess invocations and
+    # review_app.py (which anchors to its own __file__) all agree on the
+    # same locations regardless of the working directory.
+    project_root = Path(__file__).resolve().parent
+    input_path   = (project_root / args.input).resolve()
+    output_dir   = (project_root / args.output_dir).resolve()
+    log_dir      = (project_root / args.log_dir).resolve()
+    deploy_dir   = (project_root / args.deploy_dir).resolve()
+
     config = WorkflowConfig(
-        input_path=Path(args.input),
-        output_dir=Path(args.output_dir),
-        log_dir=Path(args.log_dir),
-        deploy_dir=Path(args.deploy_dir),
+        input_path=input_path,
+        output_dir=output_dir,
+        log_dir=log_dir,
+        deploy_dir=deploy_dir,
+        phase=phase,
     )
     audit = JsonAuditLogger(config.log_dir, run_id)
+
+    # Signal file lives in the same folder as review_app.py expects it
+    signal_file = output_dir / ".review_complete"
+    # Clean up any stale signal from a previous interrupted run
+    signal_file.unlink(missing_ok=True)
 
     exit_code = 0
     try:
         workflow = OrderWorkflow(config, audit)
-        workflow.run()
+
+        if phase == "phase1":
+            # ── Phase 1: validate, transform, write staging, open review UI ──
+            workflow.run_phase1()
+            audit.write()   # flush log before blocking
+
+            review_app = project_root / "review_app.py"
+            logger.info("Launching review app: streamlit run %s", review_app)
+            subprocess.Popen(
+                [sys.executable, "-m", "streamlit", "run", str(review_app)],
+                cwd=str(project_root),
+            )
+
+            # Block here in the terminal until the reviewer clicks Submit
+            _wait_for_review(signal_file, config.review_poll_interval)
+
+            # Kick off phase 2 in a new process (fresh run_id + audit log)
+            logger.info("Review complete — launching phase 2…")
+            subprocess.Popen(
+                [
+                    sys.executable, str(project_root / "order_workflow.py"),
+                    "--phase2",
+                    "--input",       str(input_path),
+                    "--output-dir",  str(output_dir),
+                    "--log-dir",     str(log_dir),
+                    "--deploy-dir",  str(deploy_dir),
+                ],
+                cwd=str(project_root),
+            )
+            return 0
+
+        elif phase == "phase2":
+            # ── Phase 2: apply decisions, export final JSON, deploy ───────────
+            workflow.run_phase2()
+
+        else:
+            # ── Single-pass (no human review) — backward compatible ───────────
+            workflow.run()
+
     except Exception:
         exit_code = 1
         audit.log(
@@ -710,11 +955,10 @@ def main() -> int:
         )
         logger.error("Workflow failed. See the JSON audit log for details.")
     finally:
-        # Always write the audit log, whether the run succeeded or failed.
         audit.write()
 
-    if exit_code == 0:
-        app_path = Path(__file__).resolve().parent / "app.py"
+    if exit_code == 0 and phase != "phase1":
+        app_path = project_root / "app.py"
         logger.info("Launching Streamlit report: streamlit run %s", app_path)
         subprocess.Popen([sys.executable, "-m", "streamlit", "run", str(app_path)])
 

@@ -3,12 +3,19 @@ app.py
 ------
 Order Processing Report — Streamlit app.
 
-Reads the latest workflow audit log from log_analysis/ and the processed
-output from generated_output/order_history_processed.json, then renders:
+This app shows the FINAL output after the two-phase pipeline has completed:
+    1. python order_workflow.py --phase1   (validate + review pop-up)
+    2. python order_workflow.py --phase2   (apply decisions + export + deploy)
 
-    Section 1 — Summary metrics  (source / processed / flagged counts)
+Renders:
+    Section 1 — Summary metrics  (source / processed / rejected counts)
     Section 2 — Table 1: Processing Summary  (colour-coded level badges)
-    Section 3 — Table 2: Final Order Output  (currency columns formatted)
+    Section 3 — Table 2: Final Order Output  (approved records only)
+    Section 4 — Rejected Orders info panel  (read-only, sourced from
+                review_decisions.json — shows what was excluded and why)
+
+Human review happens BEFORE this report in review_app.py.
+This page is purely informational — no decision UI here.
 
 Usage:
     streamlit run app.py
@@ -27,6 +34,8 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent
 LOG_DIR      = PROJECT_ROOT / "log_analysis"
 OUTPUT_FILE  = PROJECT_ROOT / "generated_output" / "order_history_processed.json"
+REVIEW_FILE  = PROJECT_ROOT / "generated_output" / "review_decisions.json"
+STAGING_FILE = PROJECT_ROOT / "generated_output" / "order_history_staging.json"
 
 # --------------------------------------------------------------------------- #
 # Data loading helpers
@@ -43,19 +52,27 @@ def _latest_log() -> Path | None:
     return logs[-1] if logs else None
 
 
+def _load_decisions() -> dict[str, str]:
+    if REVIEW_FILE.exists():
+        try:
+            return json.loads(REVIEW_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
 # --------------------------------------------------------------------------- #
 # Report-building helpers
 # --------------------------------------------------------------------------- #
 
 def _build_summary(log_data: dict, output_data: dict) -> dict:
-    """Derive the three top-level counts for the Summary section."""
-    meta        = output_data.get("metadata", {})
-    orders      = output_data.get("orders", [])
-    val_report  = output_data.get("validation_report", [])
+    """Derive the top-level counts for the Summary section."""
+    meta       = output_data.get("metadata", {})
+    orders     = output_data.get("orders", [])
+    val_report = output_data.get("validation_report", [])
 
     source_count = meta.get("row_count", len(orders))
 
-    # Orders with at least one error-severity issue
     flagged_ids: set = {
         str(v.get("order_id"))
         for v in val_report
@@ -64,7 +81,6 @@ def _build_summary(log_data: dict, output_data: dict) -> dict:
     processed_ok  = sum(1 for o in orders if str(o.get("OrderID")) not in flagged_ids)
     flagged_count = len(flagged_ids)
 
-    # Group flagged reasons
     reason_counts = Counter(
         v.get("issue_type", "unknown")
         for v in val_report
@@ -75,42 +91,40 @@ def _build_summary(log_data: dict, output_data: dict) -> dict:
         for itype, cnt in reason_counts.most_common()
     ) or "none"
 
+    # How many were rejected by the reviewer
+    decisions    = _load_decisions()
+    rejected_ids = {oid for oid, d in decisions.items() if d == "Rejected"}
+
     return {
         "source":       source_count,
         "processed_ok": processed_ok,
         "flagged":      flagged_count,
         "reason_str":   reason_str,
+        "rejected":     len(rejected_ids),
     }
 
 
-# Table 1 — Processing Summary
-_SKIP_EVENTS = {"stage_start"}   # purely internal bookkeeping
+_SKIP_EVENTS = {"stage_start"}
 
 def _build_table1(log_data: dict) -> pd.DataFrame:
     rows = []
     for e in log_data.get("events", []):
         level = e.get("level", "INFO")
         event = e.get("event", "")
-
-        # Skip pure stage_start INFO events that carry no customer value
         if event in _SKIP_EVENTS and level == "INFO":
             continue
-
         display_level = "SUCCESS" if level == "INFO" else level
         order_id      = e.get("details", {}).get("order_id", "") if e.get("details") else ""
-
         rows.append({
-            "Stage":   e.get("stage", ""),
-            "Level":   display_level,
-            "Event":   event,
-            "Message": e.get("message", ""),
+            "Stage":    e.get("stage", ""),
+            "Level":    display_level,
+            "Event":    event,
+            "Message":  e.get("message", ""),
             "Order ID": order_id or "",
         })
-
     return pd.DataFrame(rows, columns=["Stage", "Level", "Event", "Message", "Order ID"])
 
 
-# Table 2 — Final Order Output
 _ORDER_COLS = [
     "OrderID", "CustomerID", "CustomerName", "ProductID", "ProductName",
     "Quantity", "UnitPrice", "TotalAmount", "OrderDate", "Status",
@@ -126,13 +140,10 @@ _CURRENCY_COLS = {"Unit Price", "Total Amount", "Expected Total Amount"}
 def _build_table2(output_data: dict) -> pd.DataFrame:
     orders = output_data.get("orders", [])
     df = pd.DataFrame(orders)
-    # Keep only the expected columns (ignore extras like ExpectedTotalAmount if absent)
     present = [c for c in _ORDER_COLS if c in df.columns]
     df = df[present].copy()
-    # Rename to display names
     rename_map = dict(zip(_ORDER_COLS, _DISPLAY_COLS))
     df.rename(columns=rename_map, inplace=True)
-    # Format currency columns
     for col in _CURRENCY_COLS:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").map(
@@ -146,9 +157,9 @@ def _build_table2(output_data: dict) -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 
 _LEVEL_BG = {
-    "SUCCESS": "#d4edda",   # green
-    "WARNING": "#fff3cd",   # yellow
-    "ERROR":   "#f8d7da",   # red
+    "SUCCESS": "#d4edda",
+    "WARNING": "#fff3cd",
+    "ERROR":   "#f8d7da",
     "INFO":    "#d4edda",
 }
 _LEVEL_FG = {
@@ -168,14 +179,12 @@ def _badge_html(level: str) -> str:
 
 
 def _render_table1_html(df: pd.DataFrame) -> str:
-    """Render Table 1 as an HTML table with coloured Level badges."""
     th_style = (
         "style='background:#f7f8fa;color:#57606a;font-size:13px;"
         "padding:8px 12px;border:1px solid #e5e7eb;text-align:left;'"
     )
     td_style = "style='padding:8px 12px;border:1px solid #e5e7eb;font-size:13px;'"
-
-    headers = "".join(f"<th {th_style}>{col}</th>" for col in df.columns)
+    headers   = "".join(f"<th {th_style}>{col}</th>" for col in df.columns)
     rows_html = ""
     for _, row in df.iterrows():
         cells = ""
@@ -186,7 +195,6 @@ def _render_table1_html(df: pd.DataFrame) -> str:
             else:
                 cells += f"<td {td_style}>{val}</td>"
         rows_html += f"<tr>{cells}</tr>"
-
     return (
         "<div style='overflow-x:auto'>"
         f"<table style='border-collapse:collapse;width:100%'>"
@@ -207,31 +215,45 @@ def main() -> None:
         layout="wide",
     )
 
-    # ── Load data ────────────────────────────────────────────────────────────
+    # ── Guard: review still in progress ──────────────────────────────────────
+    if STAGING_FILE.exists() and not OUTPUT_FILE.exists():
+        st.warning(
+            "**Review in progress** — the staging file exists but the final "
+            "output has not been generated yet. "
+            "Complete your review in the **Order Review** pop-up "
+            "(or run `python order_workflow.py --phase2` manually)."
+        )
+        st.stop()
+
+    # ── Load data ─────────────────────────────────────────────────────────────
     log_path = _latest_log()
     if log_path is None:
         st.error("No workflow log found in log_analysis/. Run order_workflow.py first.")
         return
     if not OUTPUT_FILE.exists():
-        st.error(f"Output file not found: {OUTPUT_FILE}. Run order_workflow.py first.")
+        st.error(
+            "Output file not found. Run `python order_workflow.py --phase1` "
+            "to start the pipeline."
+        )
         return
 
     log_data    = _load_json(log_path)
     output_data = _load_json(OUTPUT_FILE)
 
-    # ── Header ───────────────────────────────────────────────────────────────
+    # ── Header ────────────────────────────────────────────────────────────────
     st.title("📦 Order Processing Report")
     st.caption(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     st.divider()
 
-    # ── Section 1: Summary metrics ───────────────────────────────────────────
+    # ── Section 1: Summary metrics ────────────────────────────────────────────
     st.subheader("Summary")
     summary = _build_summary(log_data, output_data)
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Source Records",        summary["source"])
     col2.metric("Processed Successfully", summary["processed_ok"])
-    col3.metric("Flagged / Rejected",    summary["flagged"])
+    col3.metric("Flagged Issues",        summary["flagged"])
+    col4.metric("Rejected by Reviewer",  summary["rejected"])
 
     if summary["flagged"] > 0:
         st.warning(f"**Issues found:** {summary['reason_str']}")
@@ -240,17 +262,36 @@ def main() -> None:
 
     st.divider()
 
-    # ── Section 2: Table 1 — Processing Summary ──────────────────────────────
+    # ── Section 2: Table 1 — Processing Summary ───────────────────────────────
     st.subheader("Table 1 — Processing Summary")
     table1_df = _build_table1(log_data)
     st.write(_render_table1_html(table1_df), unsafe_allow_html=True)
 
     st.divider()
 
-    # ── Section 3: Table 2 — Final Order Output ──────────────────────────────
+    # ── Section 3: Table 2 — Final Order Output ───────────────────────────────
     st.subheader("Table 2 — Final Order Output")
+    st.caption("Contains only orders that passed review (approved or not flagged).")
     table2_df = _build_table2(output_data)
     st.dataframe(table2_df, use_container_width=True, hide_index=True)
+
+    # ── Section 4: Rejected Orders info panel (read-only) ────────────────────
+    decisions = _load_decisions()
+    rejected  = {oid: d for oid, d in decisions.items() if d == "Rejected"}
+    if rejected:
+        st.divider()
+        st.subheader("Rejected Orders")
+        st.caption(
+            f"{len(rejected)} order(s) were rejected by the reviewer and excluded "
+            "from the final output. They are stored in a temporary file that will "
+            "be automatically deleted after 30 days."
+        )
+        rej_df = pd.DataFrame(
+            [{"Order ID": oid, "Decision": dec} for oid, dec in decisions.items()
+             if dec == "Rejected"],
+            columns=["Order ID", "Decision"],
+        )
+        st.dataframe(rej_df, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":

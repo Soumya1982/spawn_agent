@@ -75,6 +75,8 @@ _SEVERITY_MAP: dict[str, str] = {
     "duplicate_hard":   "medium",
     # INFORMATIONAL
     "missing_column":   "low",
+    # HUMAN DECISION — reviewer explicitly rejected an order
+    "order_rejected_by_reviewer": "high",
 }
 
 # Issues at these severities block a clean pass
@@ -163,6 +165,50 @@ def _build_rca(
 # BobRepairAgent
 # --------------------------------------------------------------------------- #
 
+# --------------------------------------------------------------------------- #
+# Review-decision loader
+# --------------------------------------------------------------------------- #
+
+def _load_review_decisions(project_root: Path) -> dict[str, str]:
+    """
+    Read generated_output/review_decisions.json and return {order_id: decision}.
+    Returns an empty dict if the file does not exist or cannot be parsed.
+    """
+    review_path = project_root / "generated_output" / "review_decisions.json"
+    if not review_path.exists():
+        return {}
+    try:
+        return json.loads(review_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _build_rejection_issues(
+    decisions: dict[str, str],
+) -> list[dict[str, Any]]:
+    """
+    Convert every "Rejected" entry in review_decisions into a synthetic issue
+    dict that the existing RCA / fix pipeline can handle.
+
+    The synthetic event name "order_rejected_by_reviewer" is matched by
+    FixRejectedOrders in agent_fixes.py.
+    """
+    return [
+        {
+            "level":   "ERROR",
+            "stage":   "human_review",
+            "event":   "order_rejected_by_reviewer",
+            "message": (
+                f"Order {oid} was marked 'Rejected' by a human reviewer "
+                "and must be excluded from the processed output."
+            ),
+            "details": {"order_id": oid},
+        }
+        for oid, decision in decisions.items()
+        if decision == "Rejected"
+    ]
+
+
 class BobRepairAgent:
     """
     IBM Bob Repair Agent.
@@ -179,10 +225,23 @@ class BobRepairAgent:
     ):
         self.run_id = run_id
         self.log_data = log_data
-        self.issues = issues
         self.project_root = project_root
         self.max_attempts = max_attempts
         self._fix_registry = FIX_REGISTRY
+
+        # Merge any human review rejections into the issue list so the
+        # existing RCA/fix pipeline handles them alongside workflow errors.
+        rejection_issues = _build_rejection_issues(
+            _load_review_decisions(project_root)
+        )
+        if rejection_issues:
+            log.info(
+                "[%s] Found %d rejected order(s) in review_decisions.json — "
+                "adding to issue list.",
+                run_id,
+                len(rejection_issues),
+            )
+        self.issues = rejection_issues + issues
 
     # ------------------------------------------------------------------ #
     # Step 1: Root Cause Analysis

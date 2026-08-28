@@ -147,8 +147,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import smtplib
 import sys
 import time
+from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
 
@@ -199,6 +202,64 @@ def _extract_issues(log_data: dict[str, Any]) -> list[dict[str, Any]]:
 # SpawnAgent
 # --------------------------------------------------------------------------- #
 
+# --------------------------------------------------------------------------- #
+# Escalation e-mail helper (HITL #4)
+# --------------------------------------------------------------------------- #
+
+def _send_escalation_email(run_id: str, detail: str) -> None:
+    """
+    Send a plain-text escalation e-mail when all repair attempts are exhausted.
+
+    Required environment variables (all optional -- if absent, email is skipped):
+        SMTP_HOST        SMTP server hostname  (default: smtp.gmail.com)
+        SMTP_PORT        SMTP port             (default: 587)
+        SMTP_USER        Sender address / login
+        SMTP_PASS        Sender password / app-password
+        ESCALATION_EMAIL Recipient address
+    """
+    recipient = os.environ.get("ESCALATION_EMAIL", "")
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    if not (recipient and smtp_user and smtp_pass):
+        log.warning(
+            "[%s] Escalation e-mail skipped -- SMTP_USER / SMTP_PASS / "
+            "ESCALATION_EMAIL env vars not set.",
+            run_id,
+        )
+        return
+
+    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+
+    subject = (
+        f"[ORDER WORKFLOW] Repair exhausted -- manual intervention required ({run_id})"
+    )
+    body = (
+        f"Run ID : {run_id}\n\n"
+        "All automatic repair attempts have been exhausted.\n"
+        "Manual review is required.\n\n"
+        f"{detail}"
+    )
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = smtp_user
+    msg["To"] = recipient
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [recipient], msg.as_string())
+        log.info("[%s] Escalation e-mail sent to %s", run_id, recipient)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[%s] Failed to send escalation e-mail: %s", run_id, exc)
+
+
+# --------------------------------------------------------------------------- #
+# SpawnAgent
+# --------------------------------------------------------------------------- #
+
 class SpawnAgent:
     """
     Watches the log directory for new workflow run logs.
@@ -210,10 +271,13 @@ class SpawnAgent:
         log_dir: Path = PROJECT_ROOT / "log_analysis",
         poll_interval: int = 10,
         max_repair_attempts: int = 3,
+        auto_approve: bool = False,
     ):
         self.log_dir = log_dir
         self.poll_interval = poll_interval
         self.max_repair_attempts = max_repair_attempts
+        # When True, skip the interactive y/N approval prompt (CI / unattended use).
+        self.auto_approve = auto_approve
         # Keep track of log files we have already processed so we only act
         # on genuinely new logs.
         self._processed: set[str] = set()
@@ -318,9 +382,80 @@ class SpawnAgent:
                 )
                 return
 
+            # ── HITL #1: Approval gate ────────────────────────────────────────
+            # Show the operator the full RCA and ask for explicit confirmation
+            # before any fix mutates source files or reruns the workflow.
+            print("\n" + rca["detail"])
+            print(
+                f"\n[{run_id}] Proposed fixes ({len(rca['recommended_fixes'])}):"
+            )
+            for fix_name, issue in rca["recommended_fixes"]:
+                print(f"  * {fix_name}  |  {issue.get('message', '')}")
+
+            if self.auto_approve:
+                log.info("[%s] --auto-approve set -- skipping interactive prompt.", run_id)
+                approved = True
+            else:
+                try:
+                    answer = input(
+                        f"\n[{run_id}] Apply these fixes and rerun? [y/N]: "
+                    ).strip().lower()
+                except EOFError:
+                    # Non-interactive environment (e.g. piped stdin) -- default to N
+                    answer = "n"
+                approved = answer == "y"
+
+            if not approved:
+                log.info(
+                    "[%s] Repair skipped by operator at attempt %d. "
+                    "No changes made.",
+                    run_id,
+                    attempt,
+                )
+                return
+            # ── end HITL #1 ───────────────────────────────────────────────────
+
             # 2. Apply fixes
             fixes_applied = agent.fix(rca)
             log.info("[%s] Applied %d fix(es): %s", run_id, len(fixes_applied), fixes_applied)
+
+            # ── HITL #2: Business-duplicate hold ─────────────────────────────
+            # If any "fix" was purely an acknowledgement (no data change), the
+            # duplicate rows still exist in the CSV.  Rerunning now would just
+            # re-flag them.  Block and ask the operator to resolve them first.
+            acknowledge_only = [
+                f for f in fixes_applied if "business_duplicate" in f.lower()
+            ]
+            if acknowledge_only:
+                log.warning(
+                    "[%s] Business duplicate(s) require manual review before "
+                    "rerun.  The following orders were flagged:\n  %s\n"
+                    "  Review the source CSV, remove or correct the duplicate "
+                    "rows, then rerun order_workflow.py manually.",
+                    run_id,
+                    "\n  ".join(acknowledge_only),
+                )
+                # Write a human-readable review file next to the log for
+                # the operator to consult.
+                review_path = (
+                    PROJECT_ROOT / "log_analysis"
+                    / f"duplicate_review_{run_id}.txt"
+                )
+                review_path.write_text(
+                    f"Run ID: {run_id}\n\n"
+                    "The following business duplicates require manual resolution "
+                    "before the workflow can be rerun cleanly:\n\n"
+                    + "\n".join(f"  - {item}" for item in acknowledge_only)
+                    + "\n\nSteps:\n"
+                    "  1. Open order_history.csv\n"
+                    "  2. Identify the duplicate OrderIDs listed above\n"
+                    "  3. Delete or correct the erroneous row\n"
+                    "  4. Re-run:  python order_workflow.py\n",
+                    encoding="utf-8",
+                )
+                log.info("[%s] Review instructions written to %s", run_id, review_path)
+                return
+            # ── end HITL #2 ───────────────────────────────────────────────────
 
             # 3. Rerun the workflow
             new_log_path = agent.rerun()
@@ -330,7 +465,7 @@ class SpawnAgent:
             verdict = agent.verify(new_log_path)
             if verdict["clean"]:
                 log.info(
-                    "[%s] ✅ Repair successful after %d attempt(s). "
+                    "[%s] Repair successful after %d attempt(s). "
                     "New run_id: %s",
                     run_id,
                     attempt,
@@ -349,12 +484,19 @@ class SpawnAgent:
             # Update the issue list for the next iteration
             agent.issues = verdict["remaining_issues"]
 
+        # ── HITL #4: Escalation on exhaustion ────────────────────────────────
+        # All automated attempts exhausted.  Send an e-mail so the problem
+        # never silently disappears.  If SMTP env vars are not set the helper
+        # logs a warning and moves on -- no hard failure.
         log.error(
-            "[%s] ❌ Exhausted %d repair attempt(s). "
-            "Escalate to manual review.",
+            "[%s] Exhausted %d repair attempt(s). "
+            "Escalating to manual review.",
             run_id,
             self.max_repair_attempts,
         )
+        rca_detail = agent.analyse().get("detail", "No detail available.")
+        _send_escalation_email(run_id, rca_detail)
+        # ── end HITL #4 ───────────────────────────────────────────────────────
 
 
 # --------------------------------------------------------------------------- #
@@ -363,7 +505,7 @@ class SpawnAgent:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="SpawnAgent — monitors workflow logs and auto-repairs issues"
+        description="SpawnAgent -- monitors workflow logs and auto-repairs issues"
     )
     parser.add_argument(
         "--once",
@@ -387,6 +529,14 @@ def _parse_args() -> argparse.Namespace:
         default=3,
         help="How many repair+rerun cycles to attempt before escalating",
     )
+    parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help=(
+            "Skip the interactive y/N approval prompt and apply fixes "
+            "automatically.  Use in CI / unattended pipelines."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -396,6 +546,7 @@ def main() -> int:
         log_dir=Path(args.log_dir),
         poll_interval=args.poll_interval,
         max_repair_attempts=args.max_repair_attempts,
+        auto_approve=args.auto_approve,
     )
     if args.once:
         agent.run_once()
