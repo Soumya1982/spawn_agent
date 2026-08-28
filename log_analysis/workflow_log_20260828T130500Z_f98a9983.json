@@ -1,0 +1,294 @@
+{
+  "run_id": "20260828T130500Z_f98a9983",
+  "started_at": "2026-08-28T13:05:00.234425+00:00",
+  "completed_at": "2026-08-28T13:05:00.388718+00:00",
+  "total_events": 25,
+  "level_counts": {
+    "INFO": 8,
+    "SUCCESS": 8,
+    "WARNING": 7,
+    "ERROR": 2
+  },
+  "overall_status": "SUCCESS_WITH_ISSUES",
+  "events": [
+    {
+      "timestamp": "2026-08-28T13:05:00.234453+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "load",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Loading CSV from order_history.csv"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.246916+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "load",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Loaded 16 rows, 11 columns",
+      "details": {
+        "row_count": 16,
+        "column_count": 11
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.247140+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "datatype_check",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Identifying and validating column data types"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.289667+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "datatype_check",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "All columns match their expected data types",
+      "details": {
+        "detected_types": {
+          "OrderID": "string",
+          "CustomerID": "string",
+          "CustomerName": "string",
+          "ProductID": "string",
+          "ProductName": "string",
+          "Quantity": "integer",
+          "UnitPrice": "float",
+          "TotalAmount": "float",
+          "OrderDate": "date",
+          "Status": "string",
+          "Region": "string"
+        }
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.289929+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "duplicate_check",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Checking for duplicates"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.294878+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "validation",
+      "level": "ERROR",
+      "event": "duplicate_hard",
+      "message": "Duplicate ['OrderID'] value: {'OrderID': 'ORD1015'}",
+      "details": {
+        "row_index": 15,
+        "order_id": "ORD1015"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.295164+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "duplicate_check",
+      "level": "WARNING",
+      "event": "hard_duplicates_dropped",
+      "message": "Dropping 1 hard duplicate row(s)",
+      "details": {
+        "dropped_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.305487+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "validation",
+      "level": "WARNING",
+      "event": "duplicate_business",
+      "message": "Possible duplicate order (same ['CustomerID', 'ProductID', 'Quantity', 'OrderDate']): OrderID=ORD1002",
+      "details": {
+        "row_index": 1,
+        "order_id": "ORD1002"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.305907+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "validation",
+      "level": "WARNING",
+      "event": "duplicate_business",
+      "message": "Possible duplicate order (same ['CustomerID', 'ProductID', 'Quantity', 'OrderDate']): OrderID=ORD1007",
+      "details": {
+        "row_index": 6,
+        "order_id": "ORD1007"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.306420+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "duplicate_check",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Duplicate check complete: 1 hard duplicate(s) removed, 2 business duplicate(s) flagged",
+      "details": {
+        "hard_duplicates": 1,
+        "business_duplicates": 2
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.306751+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "formatting",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Cleaning text and numeric formatting"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.313508+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "validation",
+      "level": "ERROR",
+      "event": "missing_quantity",
+      "message": "Quantity is missing/blank",
+      "details": {
+        "row_index": 8,
+        "order_id": "ORD1009"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.327910+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "formatting",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Formatting complete: 1 missing quantity, 0 invalid date(s)",
+      "details": {
+        "missing_quantity": 1,
+        "invalid_dates": 0
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.328399+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "formula_check",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Validating TotalAmount = Quantity * UnitPrice"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.336308+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "validation",
+      "level": "WARNING",
+      "event": "formula_mismatch",
+      "message": "TotalAmount 150.0 != Quantity*UnitPrice 136.5",
+      "details": {
+        "row_index": 3,
+        "order_id": "ORD1004"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.336739+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "validation",
+      "level": "WARNING",
+      "event": "formula_mismatch",
+      "message": "TotalAmount 698.0 != Quantity*UnitPrice 349.0",
+      "details": {
+        "row_index": 8,
+        "order_id": "ORD1009"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.337102+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "validation",
+      "level": "WARNING",
+      "event": "formula_mismatch",
+      "message": "TotalAmount 2999.0 != Quantity*UnitPrice 2998.0",
+      "details": {
+        "row_index": 11,
+        "order_id": "ORD1012"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.339912+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "formula_check",
+      "level": "WARNING",
+      "event": "stage_complete",
+      "message": "Formula check complete: 3 mismatch(es) auto-corrected",
+      "details": {
+        "mismatch_count": 3
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.340196+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "aggregation",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Aggregating totals"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.378777+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "aggregation",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Aggregated 15 orders across 4 region(s)",
+      "details": {
+        "overall": {
+          "total_orders": 15,
+          "total_quantity": 39,
+          "total_sales": 50032.5
+        }
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.379027+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "export",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Exporting JSON to generated_output"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.384396+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "export",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Wrote generated_output\\order_history_processed.json (12422 bytes)",
+      "details": {
+        "output_path": "generated_output\\order_history_processed.json",
+        "size_bytes": 12422
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.384710+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "deploy",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Deploying output to deployed"
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.387647+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "deploy",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Deployed to deployed\\order_history_processed.json",
+      "details": {
+        "deployed_path": "deployed\\order_history_processed.json"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T13:05:00.388085+00:00",
+      "run_id": "20260828T130500Z_f98a9983",
+      "stage": "workflow",
+      "level": "SUCCESS",
+      "event": "workflow_complete",
+      "message": "Workflow complete: 15 rows processed, 7 validation issue(s) logged",
+      "details": {
+        "row_count": 15,
+        "issue_count": 7
+      }
+    }
+  ]
+}

@@ -1,0 +1,472 @@
+{
+  "metadata": {
+    "run_id": "20260828T055044Z_54e9bcdc",
+    "source_file": "order_history.csv",
+    "generated_at": "2026-08-28T05:50:44.427387+00:00",
+    "row_count": 15,
+    "issue_count": 6
+  },
+  "orders": [
+    {
+      "OrderID": "ORD1001",
+      "CustomerID": "CUST01",
+      "CustomerName": "Ananya Roy",
+      "ProductID": "P100",
+      "ProductName": "Wireless Mouse",
+      "Quantity": 2,
+      "UnitPrice": 25.0,
+      "TotalAmount": 50.0,
+      "OrderDate": "2026-01-05",
+      "Status": "Delivered",
+      "Region": "East",
+      "ExpectedTotalAmount": 50.0
+    },
+    {
+      "OrderID": "ORD1002",
+      "CustomerID": "CUST02",
+      "CustomerName": "Rahul Sen",
+      "ProductID": "P101",
+      "ProductName": "Mechanical Keyboard",
+      "Quantity": 1,
+      "UnitPrice": 3499.0,
+      "TotalAmount": 3499.0,
+      "OrderDate": "2026-01-06",
+      "Status": "Delivered",
+      "Region": "West",
+      "ExpectedTotalAmount": 3499.0
+    },
+    {
+      "OrderID": "ORD1003",
+      "CustomerID": "CUST03",
+      "CustomerName": "Priya Das",
+      "ProductID": "P102",
+      "ProductName": "Usb-C Cable",
+      "Quantity": 5,
+      "UnitPrice": 199.0,
+      "TotalAmount": 995.0,
+      "OrderDate": "2026-01-07",
+      "Status": "Delivered",
+      "Region": "North",
+      "ExpectedTotalAmount": 995.0
+    },
+    {
+      "OrderID": "ORD1004",
+      "CustomerID": "CUST01",
+      "CustomerName": "Ananya Roy",
+      "ProductID": "P103",
+      "ProductName": "Laptop Stand",
+      "Quantity": 3,
+      "UnitPrice": 45.5,
+      "TotalAmount": 136.5,
+      "OrderDate": "2026-01-08",
+      "Status": "Shipped",
+      "Region": "East",
+      "ExpectedTotalAmount": 136.5
+    },
+    {
+      "OrderID": "ORD1005",
+      "CustomerID": "CUST04",
+      "CustomerName": "Suresh Kumar",
+      "ProductID": "P100",
+      "ProductName": "Wireless Mouse",
+      "Quantity": 2,
+      "UnitPrice": 25.0,
+      "TotalAmount": 50.0,
+      "OrderDate": "2026-01-09",
+      "Status": "Pending",
+      "Region": "South",
+      "ExpectedTotalAmount": 50.0
+    },
+    {
+      "OrderID": "ORD1006",
+      "CustomerID": "CUST05",
+      "CustomerName": "Meera Iyer",
+      "ProductID": "P104",
+      "ProductName": "27In Monitor",
+      "Quantity": 1,
+      "UnitPrice": 12999.0,
+      "TotalAmount": 12999.0,
+      "OrderDate": "2026-01-10",
+      "Status": "Delivered",
+      "Region": "West",
+      "ExpectedTotalAmount": 12999.0
+    },
+    {
+      "OrderID": "ORD1007",
+      "CustomerID": "CUST02",
+      "CustomerName": "Rahul Sen",
+      "ProductID": "P101",
+      "ProductName": "Mechanical Keyboard",
+      "Quantity": 1,
+      "UnitPrice": 3499.0,
+      "TotalAmount": 3499.0,
+      "OrderDate": "2026-01-06",
+      "Status": "Delivered",
+      "Region": "West",
+      "ExpectedTotalAmount": 3499.0
+    },
+    {
+      "OrderID": "ORD1008",
+      "CustomerID": "CUST06",
+      "CustomerName": "Karan Mehta",
+      "ProductID": "P105",
+      "ProductName": "Webcam Hd",
+      "Quantity": 4,
+      "UnitPrice": 1899.0,
+      "TotalAmount": 7596.0,
+      "OrderDate": "2026-01-11",
+      "Status": "Cancelled",
+      "Region": "North",
+      "ExpectedTotalAmount": 7596.0
+    },
+    {
+      "OrderID": "ORD1009",
+      "CustomerID": "CUST03",
+      "CustomerName": "Priya Das",
+      "ProductID": "P106",
+      "ProductName": "Desk Lamp",
+      "Quantity": 1,
+      "UnitPrice": 349.0,
+      "TotalAmount": 349.0,
+      "OrderDate": "2026-01-12",
+      "Status": "Delivered",
+      "Region": "North",
+      "ExpectedTotalAmount": 349.0
+    },
+    {
+      "OrderID": "ORD1010",
+      "CustomerID": "CUST07",
+      "CustomerName": "Divya Nair",
+      "ProductID": "P107",
+      "ProductName": "Office Chair",
+      "Quantity": 1,
+      "UnitPrice": 8999.0,
+      "TotalAmount": 8999.0,
+      "OrderDate": "2026-01-13",
+      "Status": "Shipped",
+      "Region": "East",
+      "ExpectedTotalAmount": 8999.0
+    },
+    {
+      "OrderID": "ORD1011",
+      "CustomerID": "CUST08",
+      "CustomerName": "Arjun Singh",
+      "ProductID": "P100",
+      "ProductName": "Wireless Mouse",
+      "Quantity": 3,
+      "UnitPrice": 25.0,
+      "TotalAmount": 75.0,
+      "OrderDate": "2026-01-14",
+      "Status": "Delivered",
+      "Region": "South",
+      "ExpectedTotalAmount": 75.0
+    },
+    {
+      "OrderID": "ORD1012",
+      "CustomerID": "CUST09",
+      "CustomerName": "Nisha Verma",
+      "ProductID": "P108",
+      "ProductName": "Bluetooth Speaker",
+      "Quantity": 2,
+      "UnitPrice": 1499.0,
+      "TotalAmount": 2998.0,
+      "OrderDate": "2026-01-15",
+      "Status": "Delivered",
+      "Region": "West",
+      "ExpectedTotalAmount": 2998.0
+    },
+    {
+      "OrderID": "ORD1013",
+      "CustomerID": "CUST10",
+      "CustomerName": "Vikram Rao",
+      "ProductID": "P109",
+      "ProductName": "External Ssd 1Tb",
+      "Quantity": 1,
+      "UnitPrice": 6499.0,
+      "TotalAmount": 6499.0,
+      "OrderDate": "2026-01-16",
+      "Status": "Pending",
+      "Region": "North",
+      "ExpectedTotalAmount": 6499.0
+    },
+    {
+      "OrderID": "ORD1014",
+      "CustomerID": "CUST05",
+      "CustomerName": "Meera Iyer",
+      "ProductID": "P110",
+      "ProductName": "Notebook Pack",
+      "Quantity": 10,
+      "UnitPrice": 49.0,
+      "TotalAmount": 490.0,
+      "OrderDate": "2026-01-17",
+      "Status": "Delivered",
+      "Region": "West",
+      "ExpectedTotalAmount": 490.0
+    },
+    {
+      "OrderID": "ORD1015",
+      "CustomerID": "CUST11",
+      "CustomerName": "Sneha Kapoor",
+      "ProductID": "P111",
+      "ProductName": "Wireless Charger",
+      "Quantity": 2,
+      "UnitPrice": 899.0,
+      "TotalAmount": 1798.0,
+      "OrderDate": "2026-01-18",
+      "Status": "Returned",
+      "Region": "East",
+      "ExpectedTotalAmount": 1798.0
+    }
+  ],
+  "aggregates": {
+    "by_region": [
+      {
+        "Region": "East",
+        "order_count": 4,
+        "total_quantity": 8,
+        "total_sales": 10983.5
+      },
+      {
+        "Region": "North",
+        "order_count": 4,
+        "total_quantity": 11,
+        "total_sales": 15439.0
+      },
+      {
+        "Region": "South",
+        "order_count": 2,
+        "total_quantity": 5,
+        "total_sales": 125.0
+      },
+      {
+        "Region": "West",
+        "order_count": 5,
+        "total_quantity": 15,
+        "total_sales": 23485.0
+      }
+    ],
+    "by_status": [
+      {
+        "Status": "Cancelled",
+        "order_count": 1,
+        "total_quantity": 4,
+        "total_sales": 7596.0
+      },
+      {
+        "Status": "Delivered",
+        "order_count": 9,
+        "total_quantity": 26,
+        "total_sales": 24954.0
+      },
+      {
+        "Status": "Pending",
+        "order_count": 2,
+        "total_quantity": 3,
+        "total_sales": 6549.0
+      },
+      {
+        "Status": "Returned",
+        "order_count": 1,
+        "total_quantity": 2,
+        "total_sales": 1798.0
+      },
+      {
+        "Status": "Shipped",
+        "order_count": 2,
+        "total_quantity": 4,
+        "total_sales": 9135.5
+      }
+    ],
+    "by_product": [
+      {
+        "ProductName": "27In Monitor",
+        "order_count": 1,
+        "total_quantity": 1,
+        "total_sales": 12999.0
+      },
+      {
+        "ProductName": "Bluetooth Speaker",
+        "order_count": 1,
+        "total_quantity": 2,
+        "total_sales": 2998.0
+      },
+      {
+        "ProductName": "Desk Lamp",
+        "order_count": 1,
+        "total_quantity": 1,
+        "total_sales": 349.0
+      },
+      {
+        "ProductName": "External Ssd 1Tb",
+        "order_count": 1,
+        "total_quantity": 1,
+        "total_sales": 6499.0
+      },
+      {
+        "ProductName": "Laptop Stand",
+        "order_count": 1,
+        "total_quantity": 3,
+        "total_sales": 136.5
+      },
+      {
+        "ProductName": "Mechanical Keyboard",
+        "order_count": 2,
+        "total_quantity": 2,
+        "total_sales": 6998.0
+      },
+      {
+        "ProductName": "Notebook Pack",
+        "order_count": 1,
+        "total_quantity": 10,
+        "total_sales": 490.0
+      },
+      {
+        "ProductName": "Office Chair",
+        "order_count": 1,
+        "total_quantity": 1,
+        "total_sales": 8999.0
+      },
+      {
+        "ProductName": "Usb-C Cable",
+        "order_count": 1,
+        "total_quantity": 5,
+        "total_sales": 995.0
+      },
+      {
+        "ProductName": "Webcam Hd",
+        "order_count": 1,
+        "total_quantity": 4,
+        "total_sales": 7596.0
+      },
+      {
+        "ProductName": "Wireless Charger",
+        "order_count": 1,
+        "total_quantity": 2,
+        "total_sales": 1798.0
+      },
+      {
+        "ProductName": "Wireless Mouse",
+        "order_count": 3,
+        "total_quantity": 7,
+        "total_sales": 175.0
+      }
+    ],
+    "by_customer": [
+      {
+        "CustomerName": "Ananya Roy",
+        "order_count": 2,
+        "total_quantity": 5,
+        "total_sales": 186.5
+      },
+      {
+        "CustomerName": "Arjun Singh",
+        "order_count": 1,
+        "total_quantity": 3,
+        "total_sales": 75.0
+      },
+      {
+        "CustomerName": "Divya Nair",
+        "order_count": 1,
+        "total_quantity": 1,
+        "total_sales": 8999.0
+      },
+      {
+        "CustomerName": "Karan Mehta",
+        "order_count": 1,
+        "total_quantity": 4,
+        "total_sales": 7596.0
+      },
+      {
+        "CustomerName": "Meera Iyer",
+        "order_count": 2,
+        "total_quantity": 11,
+        "total_sales": 13489.0
+      },
+      {
+        "CustomerName": "Nisha Verma",
+        "order_count": 1,
+        "total_quantity": 2,
+        "total_sales": 2998.0
+      },
+      {
+        "CustomerName": "Priya Das",
+        "order_count": 2,
+        "total_quantity": 6,
+        "total_sales": 1344.0
+      },
+      {
+        "CustomerName": "Rahul Sen",
+        "order_count": 2,
+        "total_quantity": 2,
+        "total_sales": 6998.0
+      },
+      {
+        "CustomerName": "Sneha Kapoor",
+        "order_count": 1,
+        "total_quantity": 2,
+        "total_sales": 1798.0
+      },
+      {
+        "CustomerName": "Suresh Kumar",
+        "order_count": 1,
+        "total_quantity": 2,
+        "total_sales": 50.0
+      },
+      {
+        "CustomerName": "Vikram Rao",
+        "order_count": 1,
+        "total_quantity": 1,
+        "total_sales": 6499.0
+      }
+    ],
+    "overall": {
+      "total_orders": 15,
+      "total_quantity": 39,
+      "total_sales": 50032.5
+    }
+  },
+  "validation_report": [
+    {
+      "row_index": 1,
+      "order_id": "ORD1002",
+      "issue_type": "duplicate_business",
+      "severity": "warning",
+      "message": "Possible duplicate order (same ['CustomerID', 'ProductID', 'Quantity', 'OrderDate']): OrderID=ORD1002"
+    },
+    {
+      "row_index": 6,
+      "order_id": "ORD1007",
+      "issue_type": "duplicate_business",
+      "severity": "warning",
+      "message": "Possible duplicate order (same ['CustomerID', 'ProductID', 'Quantity', 'OrderDate']): OrderID=ORD1007"
+    },
+    {
+      "row_index": 8,
+      "order_id": "ORD1009",
+      "issue_type": "missing_quantity",
+      "severity": "error",
+      "message": "Quantity is missing/blank"
+    },
+    {
+      "row_index": 3,
+      "order_id": "ORD1004",
+      "issue_type": "formula_mismatch",
+      "severity": "warning",
+      "message": "TotalAmount 150.0 != Quantity*UnitPrice 136.5"
+    },
+    {
+      "row_index": 8,
+      "order_id": "ORD1009",
+      "issue_type": "formula_mismatch",
+      "severity": "warning",
+      "message": "TotalAmount 698.0 != Quantity*UnitPrice 349.0"
+    },
+    {
+      "row_index": 11,
+      "order_id": "ORD1012",
+      "issue_type": "formula_mismatch",
+      "severity": "warning",
+      "message": "TotalAmount 2999.0 != Quantity*UnitPrice 2998.0"
+    }
+  ]
+}

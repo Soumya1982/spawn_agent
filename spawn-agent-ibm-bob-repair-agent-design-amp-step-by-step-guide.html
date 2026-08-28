@@ -1,0 +1,222 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Spawn Agent + IBM Bob Repair Agent</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 32px 16px 48px;
+  }
+  .page { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; color: #1f2328; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 28px; }
+  h2 { font-size: 15px; font-weight: 700; color: #1f2328; margin: 28px 0 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }
+  h3 { font-size: 13px; font-weight: 700; color: #1f2328; margin: 18px 0 6px; }
+  p { margin-bottom: 10px; color: #1f2328; }
+  code { font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 3px; padding: 1px 5px; }
+  pre {
+    background: #f7f8fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 5px;
+    padding: 14px 16px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+    overflow-x: auto;
+    margin: 10px 0 16px;
+    white-space: pre;
+    color: #1f2328;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; }
+  th { background: #f7f8fa; font-size: 12px; font-weight: 700; color: #57606a; text-align: left; padding: 7px 10px; border: 1px solid #e5e7eb; }
+  td { padding: 7px 10px; border: 1px solid #e5e7eb; font-size: 13px; vertical-align: top; }
+  td code { border: none; background: transparent; padding: 0; font-size: 12px; }
+  .step-grid { display: grid; grid-template-columns: 30px 1fr; gap: 0 14px; margin: 10px 0 20px; }
+  .step-num {
+    width: 30px; height: 30px;
+    background: #3b82d4; color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .step-body { padding-bottom: 18px; }
+  .step-body strong { display: block; margin-bottom: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 10px;
+    margin-right: 4px;
+  }
+  .badge-critical { background: #fde8e8; color: #c0392b; }
+  .badge-high     { background: #fef3cd; color: #856404; }
+  .badge-medium   { background: #fff3e0; color: #b45309; }
+  .badge-low      { background: #e8f5e9; color: #2e7d32; }
+  .arch-box {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px;
+    background: #f7f8fa;
+    margin: 12px 0 20px;
+  }
+  .arch-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+  .arch-label { font-size: 12px; font-weight: 700; color: #3b82d4; min-width: 120px; }
+  .arch-desc { font-size: 13px; color: #1f2328; }
+  .arrow { font-size: 18px; color: #57606a; line-height: 1; margin-top: 1px; }
+  .footer { text-align: center; font-size: 12px; color: #57606a; border-top: 1px solid #e5e7eb; margin-top: 40px; padding-top: 16px; }
+  .chip { display: inline-block; background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-family: "SFMono-Regular", Consolas, monospace; margin: 2px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Spawn Agent + IBM Bob Repair Agent</h1>
+  <div class="subtitle">Self-healing system for <code>order_workflow.py</code> — log watching, root cause analysis, automated fix &amp; rerun</div>
+
+  
+  <h2>Components Built</h2>
+  <table>
+    <tr><th>File</th><th>Role</th><th>Runs as</th></tr>
+    <tr>
+      <td><code>agents/spawn_agent.py</code></td>
+      <td>Watches <code>log_analysis/</code> for new run logs; triggers repair when ERROR or WARNING events are found</td>
+      <td>Long-running daemon or one-shot CLI</td>
+    </tr>
+    <tr>
+      <td><code>agents/bob_repair_agent.py</code></td>
+      <td>IBM Bob Repair Agent — performs RCA, applies fixes, reruns workflow, verifies result</td>
+      <td>Spawned by SpawnAgent or standalone CLI</td>
+    </tr>
+    <tr>
+      <td><code>agents/agent_fixes.py</code></td>
+      <td>Fix library — one class per known error/warning event type; fully pluggable</td>
+      <td>Imported by BobRepairAgent</td>
+    </tr>
+    <tr>
+      <td><code>agents/README.md</code></td>
+      <td>Full operational guide with extension patterns</td>
+      <td>Documentation</td>
+    </tr>
+  </table>
+
+  
+  <h2>Architecture</h2>
+  <div class="arch-box">
+    <div class="arch-row"><span class="arch-label">order_workflow.py</span><span class="arch-desc">Runs transformation pipeline, writes <code>log_analysis/workflow_log_*.json</code></span></div>
+    <div class="arch-row"><span class="arch-label" style="color:#57606a">↓ detected by</span><span class="arch-desc"></span></div>
+    <div class="arch-row"><span class="arch-label">SpawnAgent</span><span class="arch-desc">Polls log dir every N seconds. When a new log contains ERROR/WARNING, extracts issues and spawns BobRepairAgent</span></div>
+    <div class="arch-row"><span class="arch-label" style="color:#57606a">↓ spawns</span><span class="arch-desc"></span></div>
+    <div class="arch-row"><span class="arch-label">BobRepairAgent</span><span class="arch-desc">
+      <strong style="font-weight:600">1. analyse()</strong> → classify each issue by severity, build RCA report, identify matching fixes<br />
+      <strong style="font-weight:600">2. fix(rca)</strong> → apply AgentFix actions (patch CSV, restore files, etc.)<br />
+      <strong style="font-weight:600">3. rerun()</strong> → subprocess: <code>python order_workflow.py …</code><br />
+      <strong style="font-weight:600">4. verify()</strong> → parse new log, check if clean — repeat up to N times
+    </span></div>
+  </div>
+
+  
+  <h2>Severity &amp; Fix Mapping</h2>
+  <table>
+    <tr><th>Event code</th><th>Severity</th><th>Auto-fix applied</th></tr>
+    <tr><td><code>file_not_found</code></td><td><span class="badge badge-critical">CRITICAL</span></td><td>Search for backup CSV and restore it</td></tr>
+    <tr><td><code>load_failed / export_failed</code></td><td><span class="badge badge-critical">CRITICAL</span></td><td>Log escalation — manual fix required</td></tr>
+    <tr><td><code>missing_quantity</code></td><td><span class="badge badge-high">HIGH</span></td><td>Patch CSV cell: <code>Quantity = 1</code></td></tr>
+    <tr><td><code>datatype_mismatch</code></td><td><span class="badge badge-high">HIGH</span></td><td>Log recommendation for manual correction</td></tr>
+    <tr><td><code>formula_mismatch</code></td><td><span class="badge badge-medium">MEDIUM</span></td><td>Recompute <code>TotalAmount = Qty × UnitPrice</code> in CSV</td></tr>
+    <tr><td><code>duplicate_hard</code></td><td><span class="badge badge-medium">MEDIUM</span></td><td>Workflow auto-drops; agent acknowledges</td></tr>
+    <tr><td><code>duplicate_business</code></td><td><span class="badge badge-low">LOW</span></td><td>Acknowledged — human review required</td></tr>
+    <tr><td><code>missing_column</code></td><td><span class="badge badge-low">LOW</span></td><td>Acknowledged — schema review required</td></tr>
+  </table>
+
+  
+  <h2>Step-by-Step Operational Guide</h2>
+
+  <div class="step-grid">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Install dependencies</strong>
+      <pre>python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt</pre>
+      No extra packages required — the agents use only stdlib + pandas.
+    </div>
+
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>Run SpawnAgent in watch mode (recommended for live pipelines)</strong>
+      <pre>python agents/spawn_agent.py</pre>
+      Polls <code>log_analysis/</code> every 10 s. Detects new logs and spawns BobRepairAgent automatically.
+      Optional flags:
+      <pre>python agents/spawn_agent.py \
+    --log-dir log_analysis \
+    --poll-interval 10 \
+    --max-repair-attempts 3</pre>
+    </div>
+
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Run SpawnAgent once (CI / scheduled task)</strong>
+      <pre>python agents/spawn_agent.py --once</pre>
+      Processes every unprocessed log file in one pass, then exits with code 0.
+    </div>
+
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>Target a specific log file with BobRepairAgent directly</strong>
+      <pre>python agents/bob_repair_agent.py \
+    --log log_analysis/workflow_log_20260828T061035Z_18f06bcd.json</pre>
+      Exit codes: <code>0</code>=repaired   <code>2</code>=not auto-fixable   <code>3</code>=attempts exhausted
+    </div>
+
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>Add a custom fix for a new error type</strong>
+      <p>Open <code>agents/agent_fixes.py</code>, add a class that extends <code>AgentFix</code>, implement <code>matches()</code> and <code>apply()</code>, then append an instance to <code>FIX_REGISTRY</code>. No other files need to change.</p>
+    </div>
+
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>Escalation path (when repair is not possible)</strong>
+      <p>If all attempts are exhausted, SpawnAgent logs <code>❌ Escalate to manual review</code>. At that point: inspect the log JSON, manually correct <code>order_history.csv</code>, then rerun <code>python order_workflow.py --input order_history.csv</code>.</p>
+    </div>
+  </div>
+
+  
+  <h2>Resulting File Structure</h2>
+  <pre>IBM Bob Project/
+├── order_workflow.py
+├── order_history.csv
+├── requirements.txt
+├── log_analysis/         ← workflow writes logs here
+├── generated_output/
+├── deployed/
+└── agents/               ← NEW
+    ├── __init__.py
+    ├── spawn_agent.py        ← Spawn Agent (watcher + orchestrator)
+    ├── bob_repair_agent.py   ← IBM Bob Repair Agent (RCA + fix + rerun + verify)
+    ├── agent_fixes.py        ← Fix Library (pluggable repair actions)
+    └── README.md</pre>
+
+  
+  <h2>Extension Points</h2>
+  <table>
+    <tr><th>Goal</th><th>Where to change</th></tr>
+    <tr><td>Add a fix for a new error event</td><td><code>agent_fixes.py</code> — add class + append to <code>FIX_REGISTRY</code></td></tr>
+    <tr><td>Change retry count</td><td><code>--max-repair-attempts N</code> CLI flag on <code>spawn_agent.py</code></td></tr>
+    <tr><td>Slack / email alert on escalation</td><td><code>spawn_agent.py</code> → <code>_spawn_repair_agent()</code> after final failed attempt</td></tr>
+    <tr><td>Watch a different workflow script</td><td><code>bob_repair_agent.py</code> → <code>rerun()</code> → update the <code>cmd</code> list</td></tr>
+    <tr><td>Windows Task Scheduler (batch)</td><td>Schedule <code>python agents/spawn_agent.py --once</code> every N minutes</td></tr>
+  </table>
+
+  <div class="footer">Made with IBM Bob</div>
+</div>
+</body>
+</html>

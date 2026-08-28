@@ -1,0 +1,17 @@
+OrderID,CustomerID,CustomerName,ProductID,ProductName,Quantity,UnitPrice,TotalAmount,OrderDate,Status,Region
+ORD1001,CUST01,Ananya Roy,P100,Wireless Mouse,2,$25.00,50,05-01-2026,Delivered,East
+ORD1002,CUST02, rahul sen ,P101,Mechanical Keyboard,1,"3,499.00",3499,06-01-2026,delivered,West
+ORD1003,CUST03,Priya Das,P102,USB-C Cable,5,199,995,07-01-2026,DELIVERED,North
+ORD1004,CUST01,Ananya Roy,P103,Laptop Stand,3,$45.50,150,08-01-2026,Shipped,East
+ORD1005,CUST04,Suresh Kumar,P100,Wireless Mouse ,2,25,50,09-01-2026,Pending,South
+ORD1006,CUST05,Meera Iyer,P104,27in Monitor,1,"12,999.00",12999,10-01-2026,Delivered,West
+ORD1007,CUST02,Rahul Sen,P101,Mechanical Keyboard,1,3499,3499,06-01-2026,Delivered,West
+ORD1008,CUST06,Karan Mehta,P105,Webcam HD,4,1899,7596,11-01-2026,Cancelled,North
+ORD1009,CUST03,Priya Das,P106,Desk Lamp,,349,698,12-01-2026,Delivered,North
+ORD1010,CUST07,Divya Nair,P107,Office Chair,1,"$8,999.00",8999,13-01-2026,Shipped,East
+ORD1011,CUST08,Arjun Singh,P100,Wireless Mouse,3,25,75,14-01-2026,Delivered,South
+ORD1012,CUST09,Nisha Verma,P108,Bluetooth Speaker,2,1499,2999,15-01-2026,Delivered,West
+ORD1013,CUST10,Vikram Rao,P109,External SSD 1TB,1,6499,6499,16-01-2026,Pending,North
+ORD1014,CUST05,Meera Iyer,P110,Notebook Pack,10,49,490,17-01-2026,Delivered,West
+ORD1015,CUST11,Sneha Kapoor,P111,Wireless Charger,2,899,1798,18-01-2026,Returned,East
+ORD1015,CUST11,Sneha Kapoor,P111,Wireless Charger,2,899,1798,18-01-2026,Returned,East
