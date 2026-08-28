@@ -1,0 +1,109 @@
+{
+  "run_id": "20260828T162026Z_0729415e",
+  "started_at": "2026-08-28T16:20:26.624538+00:00",
+  "completed_at": "2026-08-28T16:20:26.674526+00:00",
+  "total_events": 8,
+  "level_counts": {
+    "INFO": 4,
+    "SUCCESS": 4,
+    "WARNING": 0,
+    "ERROR": 0
+  },
+  "overall_status": "SUCCESS",
+  "events": [
+    {
+      "timestamp": "2026-08-28T16:20:26.628484+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "phase2",
+      "level": "INFO",
+      "event": "decisions_loaded",
+      "message": "Review decisions loaded: 6 approved, 0 rejected.",
+      "details": {
+        "approved": [
+          "ORD1002",
+          "ORD1009",
+          "ORD1004",
+          "ORD1012",
+          "ORD1015",
+          "ORD1007"
+        ],
+        "rejected": []
+      }
+    },
+    {
+      "timestamp": "2026-08-28T16:20:26.633199+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "aggregation",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Aggregating totals"
+    },
+    {
+      "timestamp": "2026-08-28T16:20:26.664164+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "aggregation",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Aggregated 15 orders across 4 region(s)",
+      "details": {
+        "overall": {
+          "total_orders": 15,
+          "total_quantity": 39,
+          "total_sales": 50032.5
+        }
+      }
+    },
+    {
+      "timestamp": "2026-08-28T16:20:26.664458+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "export",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Exporting JSON to C:\\Users\\Pradipta\\Documents\\IBM Bob Project\\generated_output"
+    },
+    {
+      "timestamp": "2026-08-28T16:20:26.667749+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "export",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Wrote C:\\Users\\Pradipta\\Documents\\IBM Bob Project\\generated_output\\order_history_processed.json (12422 bytes)",
+      "details": {
+        "output_path": "C:\\Users\\Pradipta\\Documents\\IBM Bob Project\\generated_output\\order_history_processed.json",
+        "size_bytes": 12422
+      }
+    },
+    {
+      "timestamp": "2026-08-28T16:20:26.668768+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "deploy",
+      "level": "INFO",
+      "event": "stage_start",
+      "message": "Deploying output to C:\\Users\\Pradipta\\Documents\\IBM Bob Project\\deployed"
+    },
+    {
+      "timestamp": "2026-08-28T16:20:26.673797+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "deploy",
+      "level": "SUCCESS",
+      "event": "stage_complete",
+      "message": "Deployed to C:\\Users\\Pradipta\\Documents\\IBM Bob Project\\deployed\\order_history_processed.json",
+      "details": {
+        "deployed_path": "C:\\Users\\Pradipta\\Documents\\IBM Bob Project\\deployed\\order_history_processed.json"
+      }
+    },
+    {
+      "timestamp": "2026-08-28T16:20:26.674079+00:00",
+      "run_id": "20260828T162026Z_0729415e",
+      "stage": "workflow",
+      "level": "SUCCESS",
+      "event": "workflow_complete",
+      "message": "Phase 2 complete: 15 rows in final output, 0 rejected, 7 issue(s) in validation report.",
+      "details": {
+        "row_count": 15,
+        "rejected_count": 0,
+        "issue_count": 7
+      }
+    }
+  ]
+}
