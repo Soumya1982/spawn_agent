@@ -1,4 +1,4 @@
-# Order Processing Pipeline — IBM Bob Project
+# Data Processing and Self Healing Pipeline — IBM Bob Project
 
 ### End-to-end CSV → JSON order workflow with Human-in-the-Loop review, autonomous repair agents, and a Streamlit reporting dashboard
 
